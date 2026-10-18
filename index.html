@@ -78,10 +78,9 @@
     <header class="bg-white/90 dark:bg-darkcard/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 h-auto sm:h-16 py-3 sm:py-0 flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 shrink-0 z-20 shadow-sm transition-colors">
         <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
             <div class="flex items-center gap-3">
-                <div class="bg-gradient-to-tr from-primary to-secondary text-white p-2 rounded-xl shadow-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+                <div class="bg-white p-1 rounded-xl shadow-sm border border-slate-200 shrink-0 w-11 h-11 flex items-center justify-center relative overflow-hidden">
+                    <!-- 대체 아이콘 없이 원본 로고 파일만 정확하게 호출합니다 -->
+                    <img id="display-logo" src="로고_검_상호미포함.png" alt="가치있는 미래교육 연구소 로고" class="w-full h-full object-contain relative z-10">
                 </div>
                 <div>
                     <h1 class="text-lg sm:text-xl font-bold leading-tight flex items-center gap-2">
@@ -242,13 +241,41 @@
         const SHEET_ID = '1TvJWTBXTERoR3pEVHQB-tSzhZ1CPdMWVaodUcYECbxA';
         
         let appData = {
-            settings: { adminPassword: '', org: '로딩중', name: '데이터 동기화 중...' },
+            settings: { adminPassword: '', org: '로딩중', name: '데이터 동기화 중...', logoUrl: '' },
             practiceData: [], // { title, data }
             referenceData: [], // { title, link }
             lastFetch: 0
         };
 
         let currentView = { type: 'course', id: 's1-1' }; // type: course | practice | reference
+
+        // [추가] 브라우저에 저장된 캐시 데이터를 즉시 불러와 로딩 딜레이 제거
+        document.addEventListener('DOMContentLoaded', () => {
+            const cachedOrg = localStorage.getItem('aside_cached_org');
+            const cachedName = localStorage.getItem('aside_cached_name');
+            const cachedLogo = localStorage.getItem('aside_cached_logo');
+            
+            if (cachedOrg) document.getElementById('display-org').textContent = cachedOrg;
+            if (cachedName) document.getElementById('display-name').textContent = cachedName;
+            if (cachedLogo) {
+                const logoImg = document.getElementById('display-logo');
+                if (logoImg) logoImg.src = cachedLogo;
+            }
+        });
+
+        // 구글 드라이브 링크를 직접 이미지 로딩 주소로 자동 변환하는 함수
+        function getDirectImageUrl(url) {
+            if (!url) return '';
+            if (url.includes('drive.google.com')) {
+                // 링크에서 고유 ID 추출 (일반적으로 25자 이상의 영문/숫자 혼합)
+                const match = url.match(/[-\w]{25,}/);
+                if (match && match[0]) {
+                    // 구글 드라이브 최신 정책에 맞춰 외부 사이트에서도 안정적으로 이미지를 띄우는 주소로 변환
+                    return 'https://lh3.googleusercontent.com/d/' + match[0];
+                }
+            }
+            return url;
+        }
 
         // Hardcoded 8 Scenarios for Part 1 & 2
         const courseData = [
@@ -477,8 +504,22 @@
                     appData.settings.org = row[1] || '지정되지 않음';
                     appData.settings.name = row[2] || '연수명 미설정';
                     
+                    const rawLogoUrl = row[3] ? String(row[3]).trim() : '';
+                    appData.settings.logoUrl = rawLogoUrl ? getDirectImageUrl(rawLogoUrl) : '로고_검_상호미포함.png';
+                    
+                    // [추가] 불러온 데이터를 로컬 스토리지에 저장 (다음 접속 시 즉시 로딩용)
+                    localStorage.setItem('aside_cached_org', appData.settings.org);
+                    localStorage.setItem('aside_cached_name', appData.settings.name);
+                    localStorage.setItem('aside_cached_logo', appData.settings.logoUrl);
+
                     document.getElementById('display-org').textContent = appData.settings.org;
                     document.getElementById('display-name').textContent = appData.settings.name;
+                    
+                    // 로고 이미지 실시간 업데이트 (깜빡임 방지를 위해 URL이 다를 때만 변경)
+                    const logoImg = document.getElementById('display-logo');
+                    if (logoImg && appData.settings.logoUrl && logoImg.getAttribute('src') !== appData.settings.logoUrl) {
+                        logoImg.src = appData.settings.logoUrl;
+                    }
                 }
             }
 
