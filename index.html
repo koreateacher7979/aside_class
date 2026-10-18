@@ -1,562 +1,910 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aside AI 브라우저 마스터 클래스</title>
+    <title>Aside 심화 연수 실시간 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .aside-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
-        .aside-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .aside-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .aside-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        
-        .toast { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(100%); opacity: 0; }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        
-        .step-badge {
-            display: inline-flex; align-items: center; justify-content: center;
-            padding: 0 0.5rem; height: 1.75rem; min-width: 1.75rem; border-radius: 9999px; 
-            font-weight: bold; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'Inter', 'sans-serif'],
+                    },
                     colors: {
-                        aside: { 50: '#f6f7f9', 100: '#eceff3', 500: '#6366f1', 600: '#4f46e5', 900: '#0f172a' }
+                        primary: '#6366f1', // Indigo-500
+                        secondary: '#8b5cf6', // Violet-500
+                        darkbg: '#0f172a', // Slate-900
+                        darkcard: '#1e293b', // Slate-800
                     }
                 }
             }
         }
     </script>
-</head>
-<body class="bg-gray-100 h-[100dvh] overflow-hidden flex flex-col">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            overflow: hidden; 
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-    <header class="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 z-10 shrink-0 shadow-sm">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-aside-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-inner shrink-0">A</div>
-            <div>
-                <h1 class="text-base md:text-lg font-bold text-gray-800 tracking-tight">Aside AI 브라우저 마스터 클래스</h1>
-                <p class="text-[10px] md:text-xs text-gray-500 font-medium">브라우저 안의 메인전트, 업무 자동화의 시작</p>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(100%); opacity: 0; }
+        }
+        .toast-enter { animation: slideUp 0.3s ease-out forwards; }
+        .toast-exit { animation: slideDown 0.3s ease-in forwards; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .dark .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col bg-slate-50 dark:bg-darkbg text-slate-800 dark:text-slate-100">
+
+    <!-- Header -->
+    <header class="bg-white/90 dark:bg-darkcard/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 h-auto sm:h-16 py-3 sm:py-0 flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 shrink-0 z-20 shadow-sm transition-colors">
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-primary to-secondary text-white p-2 rounded-xl shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold leading-tight flex items-center gap-2">
+                        <span id="display-org" class="text-primary dark:text-secondary text-sm bg-indigo-50 dark:bg-indigo-900/50 px-2 py-0.5 rounded">로딩중...</span>
+                    </h1>
+                    <p id="display-name" class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">연수 데이터를 불러오는 중...</p>
+                </div>
+            </div>
+            
+            <!-- Mobile Controls -->
+            <div class="flex sm:hidden items-center gap-2">
+                <button onclick="toggleDarkMode()" class="p-2 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                    <svg id="theme-icon-mobile" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                </button>
             </div>
         </div>
-        <div class="flex items-center w-full sm:w-auto">
-            <div class="w-full sm:w-auto px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs md:text-sm font-bold border border-blue-100 flex items-center justify-center gap-1.5 shadow-sm truncate">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                개발자 : 가치있는 미래교육 연구소 대표 김병찬
-            </div>
+
+        <div class="hidden sm:flex items-center gap-4 mt-3 sm:mt-0">
+            <span class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs sm:text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                개발자: 가치있는 미래교육 연구소 대표 김병찬
+            </span>
+            <button onclick="toggleDarkMode()" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors">
+                <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            </button>
+            <button onclick="openAdmin()" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors" title="관리자 모드">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
         </div>
     </header>
 
-    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        <!-- 메인 콘텐츠 영역 (모바일: 상단, 데스크탑: 좌측) -->
-        <div class="flex-1 w-full flex flex-col bg-white overflow-hidden relative">
-            
-            <!-- 브라우저 URL 바 -->
-            <div class="bg-gray-100 border-b border-gray-200 px-3 py-2 flex items-center gap-2 text-sm text-gray-500 shrink-0">
-                <div class="hidden sm:flex gap-1.5 mr-2 shrink-0">
-                    <div class="w-3 h-3 rounded-full bg-red-400"></div>
-                    <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
-                    <div class="w-3 h-3 rounded-full bg-green-400"></div>
-                </div>
-                <div class="flex-1 bg-white rounded-md px-3 py-1.5 flex items-center gap-2 border border-gray-200 shadow-inner overflow-hidden">
-                    <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path></svg>
-                    <span id="browser-url" class="text-xs sm:text-sm text-gray-600 truncate transition-all w-full block">https://aside-edu-class.com/install-guide</span>
-                </div>
-            </div>
-
-            <!-- 네비게이션 탭 -->
-            <div class="flex border-b border-gray-200 bg-gray-50 px-2 sm:px-4 pt-3 gap-1 shrink-0 overflow-x-auto hide-scrollbar">
-                <button onclick="switchTab('install')" id="tab-install" class="tab-btn px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg bg-white border-t border-l border-r border-gray-200 text-aside-600 shadow-sm transition-colors whitespace-nowrap">1. 설치/설정</button>
-                <button onclick="switchTab('basic')" id="tab-basic" class="tab-btn px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg text-gray-500 hover:bg-gray-200 border-t border-l border-r border-transparent transition-colors whitespace-nowrap">2. 페이지 읽기</button>
-                <button onclick="switchTab('advanced')" id="tab-advanced" class="tab-btn px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg text-gray-500 hover:bg-gray-200 border-t border-l border-r border-transparent transition-colors whitespace-nowrap">3. 구조화/비교</button>
-                <button onclick="switchTab('automation')" id="tab-automation" class="tab-btn px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg text-gray-500 hover:bg-gray-200 border-t border-l border-r border-transparent transition-colors whitespace-nowrap">4. 캔바 자동화</button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto aside-scrollbar p-4 md:p-6 bg-white relative" id="main-content-area">
+    <div class="flex flex-col sm:flex-row flex-1 overflow-hidden relative">
+        
+        <!-- Navigation (Sidebar on PC, Top scrolling bar on Mobile) -->
+        <aside class="w-full sm:w-72 bg-slate-50/90 dark:bg-darkcard/90 backdrop-blur-sm border-b sm:border-b-0 sm:border-r border-slate-200 dark:border-slate-700 flex flex-row sm:flex-col shrink-0 z-10 overflow-x-auto sm:overflow-y-auto hide-scroll transition-colors">
+            <div class="p-3 sm:p-5 flex sm:flex-col gap-2 sm:gap-6 min-w-max sm:min-w-0">
                 
-                <!-- Tab 1: Install & Settings -->
-                <div id="content-install" class="tab-content block animate-fade-in max-w-6xl mx-auto">
-                    <div class="border-b border-gray-200 pb-3 md:pb-4 mb-4 md:mb-6">
-                        <h2 class="text-xl md:text-3xl font-bold text-gray-900 mb-2 tracking-tight">핵심 설정 가이드 (Settings)</h2>
-                        <p class="text-xs md:text-sm text-gray-600">설치 직후 톱니바퀴 아이콘을 클릭하여 진입하는 Settings 메뉴입니다.<br class="hidden md:block">항목을 클릭하여 교사 업무에 최적화된 필수 설정 방법을 확인하세요.</p>
-                    </div>
-
-                    <div class="flex flex-col lg:flex-row gap-4 lg:gap-8 items-start">
-                        <!-- 설정 사이드바 (모바일: 가로 스크롤, PC: 세로 스크롤) -->
-                        <div class="w-full lg:w-64 shrink-0 bg-[#fbfbfb] rounded-xl border border-gray-200 p-2 lg:py-3 shadow-sm static lg:sticky lg:top-0 flex flex-row lg:flex-col overflow-x-auto lg:overflow-y-auto lg:max-h-[70vh] hide-scrollbar lg:aside-scrollbar items-center lg:items-stretch gap-2 lg:gap-0">
-                            
-                            <!-- Personal -->
-                            <div class="hidden lg:block px-4 text-xs font-semibold text-gray-500 mb-2 mt-1">Personal</div>
-                            <button onclick="showSetting('General', this)" class="setting-btn shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 py-2 text-xs lg:text-sm text-gray-900 bg-gray-200 font-semibold rounded-lg text-left transition-colors active-setting whitespace-nowrap">
-                                <svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg> General
-                            </button>
-                            <button onclick="showSetting('Appearance', this)" class="setting-btn shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 py-2 text-xs lg:text-sm text-gray-600 hover:bg-gray-100 rounded-lg text-left transition-colors whitespace-nowrap">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg> Appearance
-                            </button>
-                            <button onclick="showSetting('SecurityPrivacy', this)" class="setting-btn shrink-0 lg:w-full flex items-center justify-between px-3 py-2 text-xs lg:text-sm text-gray-600 hover:bg-gray-100 rounded-lg text-left transition-colors whitespace-nowrap gap-2">
-                                <span class="flex items-center gap-2 lg:gap-3"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg> Security</span>
-                                <span class="text-[9px] font-bold bg-blue-50 text-blue-600 px-1 rounded">New</span>
-                            </button>
-
-                            <!-- Agent -->
-                            <div class="hidden lg:block px-4 text-xs font-semibold text-gray-500 mb-2 mt-4">Agent</div>
-                            <button onclick="showSetting('Agents', this)" class="setting-btn shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 py-2 text-xs lg:text-sm text-gray-600 hover:bg-gray-100 rounded-lg text-left transition-colors whitespace-nowrap">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg> Agents
-                            </button>
-                            <button onclick="showSetting('Models', this)" class="setting-btn shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 py-2 text-xs lg:text-sm text-gray-600 hover:bg-gray-100 rounded-lg text-left transition-colors whitespace-nowrap">
-                                <svg class="w-4 h-4 text-aside-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg> Models (중요)
-                            </button>
-                            <button onclick="showSetting('Context', this)" class="setting-btn shrink-0 lg:w-full flex items-center justify-between px-3 py-2 text-xs lg:text-sm text-gray-600 hover:bg-gray-100 rounded-lg text-left transition-colors whitespace-nowrap gap-2">
-                                <span class="flex items-center gap-2 lg:gap-3"><svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg> Context</span>
-                                <span class="text-[9px] font-bold bg-blue-50 text-blue-600 px-1 rounded">New</span>
-                            </button>
-
-                            <!-- Features -->
-                            <div class="hidden lg:block px-4 text-xs font-semibold text-gray-500 mb-2 mt-4">Features</div>
-                            <button onclick="showSetting('Passwords', this)" class="setting-btn shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 py-2 text-xs lg:text-sm text-gray-600 hover:bg-gray-100 rounded-lg text-left transition-colors whitespace-nowrap">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg> Passwords
-                            </button>
-                            <button onclick="showSetting('MiniPopup', this)" class="setting-btn shrink-0 lg:w-full flex items-center gap-2 lg:gap-3 px-3 py-2 text-xs lg:text-sm text-gray-600 hover:bg-gray-100 rounded-lg text-left transition-colors whitespace-nowrap">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg> Mini popup
-                            </button>
-                        </div>
-
-                        <!-- 설정 상세 패널 -->
-                        <div class="flex-1 space-y-4 lg:space-y-6 w-full" id="setting-detail-container">
-                            <div id="detail-General" class="setting-detail-card block bg-white p-4 lg:p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
-                                <h3 class="text-lg lg:text-xl font-bold text-gray-900 mb-3 lg:mb-4 border-b border-gray-100 pb-2">General (일반)</h3>
-                                <p class="text-gray-600 text-xs lg:text-sm mb-4">브라우저 시작 시 동작과 다운로드 기본 경로를 설정합니다.</p>
-                                <div class="bg-blue-50 p-3 lg:p-4 rounded-lg border border-blue-100 text-xs lg:text-sm">
-                                    <strong>✅ 교사 추천 셋팅:</strong><br>
-                                    <ul class="list-disc ml-5 mt-1 lg:mt-2 space-y-1 text-blue-800">
-                                        <li>`On startup` 옵션을 <strong>'Continue where you left off' (이전 탭 유지)</strong>로 설정하세요. 퇴근 후 다음날 나이스, 업무포털 탭이 그대로 유지됩니다.</li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            <div id="detail-Appearance" class="setting-detail-card hidden bg-white p-4 lg:p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
-                                <h3 class="text-lg lg:text-xl font-bold text-gray-900 mb-3 border-b border-gray-100 pb-2">Appearance (화면 테마 및 크기)</h3>
-                                <div class="bg-gray-50 p-3 lg:p-4 rounded-lg border border-gray-200 text-xs lg:text-sm text-gray-700">
-                                    <strong>💡 꿀팁:</strong> 교실 전자칠판 연결 시 <strong>Page Zoom을 125% 이상</strong>으로 설정하면 맨 뒷자리의 학생들도 글씨를 명확하게 볼 수 있습니다.
-                                </div>
-                            </div>
-
-                            <div id="detail-SecurityPrivacy" class="setting-detail-card hidden bg-white p-4 lg:p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
-                                <h3 class="text-lg lg:text-xl font-bold text-gray-900 mb-3 border-b border-gray-100 pb-2">Security & Privacy</h3>
-                                <div class="bg-red-50 p-3 lg:p-4 rounded-lg border border-red-100 text-xs lg:text-sm text-red-800">
-                                    <strong>❗ 공용 PC 주의사항:</strong> 교무실 공용 PC에 설치했다면 <strong>'브라우저 종료 시 쿠키 삭제'</strong> 옵션을 활성화하여 개인정보를 보호하세요.
-                                </div>
-                            </div>
-
-                            <div id="detail-Agents" class="setting-detail-card hidden bg-white p-4 lg:p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
-                                <h3 class="text-lg lg:text-xl font-bold text-gray-900 mb-3 border-b border-gray-100 pb-2">Agents (나만의 AI 비서)</h3>
-                                <p class="text-gray-600 text-xs lg:text-sm">업무 목적별 커스텀 에이전트를 만듭니다. 예: '학생부 도우미', '번역기' 등.</p>
-                            </div>
-
-                            <div id="detail-Models" class="setting-detail-card hidden bg-white p-4 lg:p-6 rounded-xl border-2 border-aside-500 shadow-md animate-fade-in">
-                                <h3 class="text-lg lg:text-xl font-bold text-aside-700 mb-3 border-b border-gray-100 pb-2">🌟 Models (AI 두뇌 선택 - 핵심)</h3>
-                                <p class="text-gray-700 text-xs lg:text-sm mb-3">에이전트가 사용할 인공지능 모델(두뇌)을 결정합니다.</p>
-                                <ul class="list-disc list-inside space-y-2 lg:space-y-3 text-xs lg:text-sm text-gray-600 bg-gray-50 p-3 lg:p-4 rounded-lg">
-                                    <li><strong>Claude 3.5 Sonnet (추천):</strong> 공문서 요약, 표 정리, 자연스러운 한국어에 가장 뛰어납니다.</li>
-                                    <li><strong>GPT-4o:</strong> 웹 검색 연동이 강력하여, 수업 자료 리서치나 빠른 답변에 적합합니다.</li>
-                                    <li><strong>BYOK:</strong> API Key를 직접 발급받아 입력하면 매우 저렴하게 무제한 사용 가능합니다.</li>
-                                </ul>
-                            </div>
-
-                            <div id="detail-Context" class="setting-detail-card hidden bg-white p-4 lg:p-6 rounded-xl border-2 border-blue-400 shadow-md animate-fade-in">
-                                <h3 class="text-lg lg:text-xl font-bold text-blue-800 mb-3 border-b border-gray-100 pb-2">💡 Context Awareness (상황 인지 - 필수)</h3>
-                                <p class="text-gray-700 text-xs lg:text-sm mb-3">현재 화면에 띄워진 웹페이지를 AI가 실시간으로 파악하는 핵심 기능입니다.</p>
-                                <div class="bg-gray-100 p-3 rounded text-xs lg:text-sm text-gray-700 border border-gray-300">
-                                    이 기능을 <strong>ON</strong>으로 켜두어야 "이 페이지 요약해줘" 명령이 가능합니다. 무조건 활성화하세요.
-                                </div>
-                            </div>
-
-                            <div id="detail-Passwords" class="setting-detail-card hidden bg-white p-4 lg:p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
-                                <h3 class="text-lg lg:text-xl font-bold text-gray-900 mb-3 border-b border-gray-100 pb-2">Passwords (비밀번호 권한)</h3>
-                                <p class="text-gray-600 text-xs lg:text-sm">AI가 나이스(NEIS) 등에 대신 로그인할 수 있도록 비밀번호를 연동합니다. (지문/얼굴 인식 필수)</p>
-                            </div>
-                            
-                            <div id="detail-MiniPopup" class="setting-detail-card hidden bg-white p-4 lg:p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
-                                <h3 class="text-lg lg:text-xl font-bold text-gray-900 mb-3 border-b border-gray-100 pb-2">Mini popup (빠른 실행)</h3>
-                                <p class="text-gray-600 text-xs lg:text-sm">우측 패널을 열지 않고도 화면 중앙에 명령창을 띄우는 단축키입니다. (기본: Mac <code>Cmd+K</code>, Win <code>Ctrl+K</code>)</p>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Part 1 Category -->
+                <div class="flex flex-col gap-1.5">
+                    <h2 class="text-[11px] sm:text-xs font-bold text-primary uppercase tracking-wider mb-1 sm:mb-3 flex items-center gap-1 px-2 sm:px-0">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"></path></svg>
+                        Part 1: 수업/평가 자동화
+                    </h2>
+                    <nav id="nav-part1" class="flex sm:flex-col gap-2 sm:gap-1.5"></nav>
                 </div>
 
-                <div id="content-basic" class="tab-content hidden animate-fade-in max-w-4xl mx-auto space-y-6 lg:space-y-8 pb-10">
-                    <div class="border-b border-gray-200 pb-3 lg:pb-4">
-                        <h2 class="text-xl md:text-3xl font-bold text-gray-900 mb-2 tracking-tight">기초: 현재 페이지 읽고 요약하기</h2>
-                        <p class="text-sm lg:text-base text-gray-600">긴 공문이나 지침서를 에이전트가 읽고 요약하게 합니다. <strong>순서대로 따라해보세요.</strong></p>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden relative">
-                        <div class="bg-blue-50 px-4 lg:px-6 py-3 lg:py-4 border-b border-blue-100">
-                            <h3 class="text-base lg:text-lg font-bold text-blue-900 flex items-center gap-2">
-                                <span class="step-badge bg-blue-600 text-white shadow">실습</span>
-                                긴 연수 공문서, 3줄 핵심 요약하기
-                            </h3>
-                        </div>
-                        <div class="p-4 lg:p-6 space-y-6 lg:space-y-8">
-                            
-                            <div class="flex items-start gap-3 lg:gap-4">
-                                <div class="step-badge bg-gray-100 text-gray-500">1</div>
-                                <div>
-                                    <h4 class="font-bold text-gray-800 text-sm lg:text-lg">공문 페이지 열기</h4>
-                                    <p class="text-xs lg:text-sm text-gray-600 mt-1">업무포털이나 학교 홈페이지에서 내용이 긴 공문 페이지를 화면에 띄웁니다.</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start gap-3 lg:gap-4">
-                                <div class="step-badge bg-gray-100 text-gray-500">2</div>
-                                <div>
-                                    <h4 class="font-bold text-gray-800 text-sm lg:text-lg">Aside 패널 열기</h4>
-                                    <p class="text-xs lg:text-sm text-gray-600 mt-1">브라우저 우측 상단 <strong><code>[A]</code> 아이콘을 클릭</strong>하거나 단축키 <kbd class="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] lg:text-xs">Ctrl+Shift+Space</kbd>를 누릅니다.</p>
-                                </div>
-                            </div>
-
-                            <div class="flex items-start gap-3 lg:gap-4">
-                                <div class="step-badge bg-blue-600 text-white shadow-md ring-2 ring-blue-100">3</div>
-                                <div class="w-full">
-                                    <h4 class="font-bold text-gray-800 text-sm lg:text-lg flex flex-wrap items-center gap-2">
-                                        명령: 프롬프트 입력 및 실행 
-                                        <span class="text-[10px] lg:text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">여기서 직접 해보세요!</span>
-                                    </h4>
-                                    <p class="text-xs lg:text-sm text-gray-600 mt-1 mb-3">아래 박스 안의 <strong>[복사] 버튼을 클릭</strong>하고 우측 입력창에 <strong>붙여넣어(Ctrl+V)</strong> 전송해보세요.</p>
-                                    
-                                    <div class="bg-gray-900 rounded-lg p-3 lg:p-4 relative shadow-inner border border-gray-800 flex flex-col gap-3">
-                                        <div class="flex justify-end">
-                                            <button onclick="copyPromptAndSimulate('prompt-1')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 text-xs font-bold shadow w-auto">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                                프롬프트 복사
-                                            </button>
-                                        </div>
-                                        <p class="text-gray-200 text-xs lg:text-sm font-mono leading-relaxed break-keep" id="prompt-1">이 공문의 1)목적, 2)신청 대상(자격), 3)신청 마감 기한, 4)주요 연수 내용을 3줄 이내로 매우 간결하게 요약해줘. 그리고 내가 다운로드해서 제출해야 할 첨부파일 양식이 있다면 그 목록도 빼놓지 말고 알려줘.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Part 2 Category -->
+                <div class="flex flex-col gap-1.5">
+                    <h2 class="text-[11px] sm:text-xs font-bold text-primary uppercase tracking-wider mb-1 sm:mb-3 flex items-center gap-1 px-2 sm:px-0 mt-0 sm:mt-2">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"></path></svg>
+                        Part 2: 행정/세특 혁신
+                    </h2>
+                    <nav id="nav-part2" class="flex sm:flex-col gap-2 sm:gap-1.5"></nav>
                 </div>
 
-                <div id="content-advanced" class="tab-content hidden animate-fade-in max-w-4xl mx-auto space-y-6 lg:space-y-8 pb-10">
-                    <div class="border-b border-gray-200 pb-3 lg:pb-4">
-                        <h2 class="text-xl md:text-3xl font-bold text-gray-900 mb-2 tracking-tight">심화: 여러 탭 모아 표 만들기</h2>
-                        <p class="text-sm lg:text-base text-gray-600">Aside는 <strong>상단에 열려있는 여러 개의 탭을 스스로 넘나들며</strong> 자료를 모으고 비교해줍니다.</p>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden relative">
-                        <div class="bg-purple-50 px-4 lg:px-6 py-3 lg:py-4 border-b border-purple-100">
-                            <h3 class="text-base lg:text-lg font-bold text-purple-900 flex items-center gap-2">
-                                <span class="step-badge bg-purple-600 text-white shadow">실습</span>
-                                3개의 에듀테크 사이트 비교표 만들기
-                            </h3>
-                        </div>
-                        <div class="p-4 lg:p-6 space-y-6 lg:space-y-8">
-                            
-                            <div class="flex items-start gap-3 lg:gap-4">
-                                <div class="step-badge bg-gray-100 text-gray-500">1</div>
-                                <div>
-                                    <h4 class="font-bold text-gray-800 text-sm lg:text-lg">상단에 여러 탭 띄우기</h4>
-                                    <p class="text-xs lg:text-sm text-gray-600 mt-1">예: [첫번째 탭: 패들렛], [두번째 탭: 띵커벨], [세번째 탭: 캔바]</p>
-                                </div>
+                <!-- Dynamic Data Categories -->
+                <div class="flex flex-col gap-1.5">
+                    <h2 class="text-[11px] sm:text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1 sm:mb-3 flex items-center gap-1 px-2 sm:px-0 mt-0 sm:mt-2">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                        실시간 연동 데이터
+                    </h2>
+                    <nav id="nav-dynamic" class="flex sm:flex-col gap-2 sm:gap-1.5">
+                        <button onclick="renderDynamicView('practice')" id="btn-practice" class="nav-button w-40 sm:w-full flex items-center gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-left text-sm font-medium transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800">
+                            <div class="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shrink-0 icon-container">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                             </div>
-
-                            <div class="flex items-start gap-3 lg:gap-4">
-                                <div class="step-badge bg-purple-600 text-white shadow-md ring-2 ring-purple-100">2</div>
-                                <div class="w-full">
-                                    <h4 class="font-bold text-gray-800 text-sm lg:text-lg">프롬프트 복사 및 붙여넣기</h4>
-                                    <p class="text-xs lg:text-sm text-gray-600 mt-1 mb-3">AI가 스스로 탭을 이동하는 시뮬레이션을 볼 수 있습니다.</p>
-                                    
-                                    <div class="bg-gray-900 rounded-lg p-3 lg:p-4 relative shadow-inner border border-gray-800 flex flex-col gap-3">
-                                        <div class="flex justify-end">
-                                            <button onclick="copyPromptAndSimulate('prompt-3', true)" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 text-xs font-bold shadow w-auto">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                                프롬프트 복사
-                                            </button>
-                                        </div>
-                                        <p class="text-gray-200 text-xs lg:text-sm font-mono leading-relaxed break-keep" id="prompt-3">현재 열려있는 3개의 에듀테크 서비스 홈페이지 탭을 각각 방문해서 탐색해줘. 각 서비스의 정보를 종합해서 아래 항목을 기준으로 깔끔한 마크다운 표(Table)로 작성해줘.<br>[표 구분 항목] : 서비스명 / 주요 기능 3가지 / 교사 인증 시 무료 혜택 / 학생 회원가입 필수 여부</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="content-automation" class="tab-content hidden animate-fade-in max-w-4xl mx-auto space-y-6 lg:space-y-8 pb-10">
-                    <div class="border-b border-gray-200 pb-3 lg:pb-4">
-                        <h2 class="text-xl md:text-3xl font-bold text-gray-900 mb-2 tracking-tight">응용: 캔바(Canva) 자료 자동 생성</h2>
-                        <p class="text-sm lg:text-base text-gray-600">AI가 웹페이지를 분석하여 <strong>카드뉴스 기획안을 짜고, 캔바 홈페이지를 스스로 열어 템플릿 검색까지 완료</strong>합니다.</p>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden relative">
-                        <div class="bg-orange-50 px-4 lg:px-6 py-3 lg:py-4 border-b border-orange-100">
-                            <h3 class="text-base lg:text-lg font-bold text-orange-900 flex items-center gap-2">
-                                <span class="step-badge bg-orange-600 text-white shadow">실습</span>
-                                텍스트 교육 자료를 5장짜리 카드뉴스로 재구성하기
-                            </h3>
-                        </div>
-                        <div class="p-4 lg:p-6 space-y-6 lg:space-y-8">
-                            
-                            <div class="flex items-start gap-3 lg:gap-4">
-                                <div class="step-badge bg-gray-100 text-gray-500">1</div>
-                                <div>
-                                    <h4 class="font-bold text-gray-800 text-sm lg:text-lg">변환할 긴 교육 자료 열기</h4>
-                                    <p class="text-xs lg:text-sm text-gray-600 mt-1">학생들에게 가르칠 내용이 담긴 긴 웹페이지(예: 사이버 폭력 예방 수칙)를 브라우저에 띄웁니다.</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start gap-3 lg:gap-4">
-                                <div class="step-badge bg-orange-600 text-white shadow-md ring-2 ring-orange-100">2</div>
-                                <div class="w-full">
-                                    <h4 class="font-bold text-gray-800 text-sm lg:text-lg">카드뉴스 기획 및 캔바 자동 실행</h4>
-                                    <p class="text-xs lg:text-sm text-gray-600 mt-1 mb-3">AI가 초안을 짜고 새 탭에서 캔바 검색까지 대신 실행합니다.</p>
-                                    
-                                    <div class="bg-gray-900 rounded-lg p-3 lg:p-4 relative shadow-inner border border-gray-800 flex flex-col gap-3">
-                                        <div class="flex justify-end">
-                                            <button onclick="copyPromptAndSimulate('prompt-canva', false, false, true)" class="bg-orange-600 hover:bg-orange-500 text-white px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 text-xs font-bold shadow w-auto">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                                                프롬프트 복사
-                                            </button>
-                                        </div>
-                                        <p class="text-gray-200 text-xs lg:text-sm font-mono leading-relaxed break-keep" id="prompt-canva">현재 열려있는 웹페이지의 내용을 분석해서, 학생 교육용 캔바(Canva) 카드뉴스(또는 프레젠테이션) 5장 분량의 초안을 기획해줘. 각 장마다 [슬라이드 제목 / 핵심 내용 2줄 요약 / 어울리는 시각 자료 추천]을 마크다운으로 깔끔하게 정리해줘. <br><br>내용 정리가 끝나면, 새 탭에서 캔바 홈페이지(canva.com)를 열고 중앙 검색창에 '교육용 카드뉴스'라고 타이핑한 뒤 엔터를 쳐서 템플릿 검색까지 대신 실행해줘.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 오른쪽 AI 에이전트 창 (반응형 대응: 모바일에서는 하단 45vh 높이 차지) -->
-        <div class="w-full lg:w-[400px] h-[45vh] lg:h-auto bg-[#f9f9fa] border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col shrink-0 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)] z-20">
-            <div class="px-4 lg:px-5 py-2 lg:py-3 border-b border-gray-200 bg-white flex justify-between items-center shrink-0">
-                <div class="flex items-center gap-2">
-                    <div class="w-5 h-5 lg:w-6 lg:h-6 bg-aside-600 rounded flex items-center justify-center text-white font-bold text-[10px] lg:text-xs">A</div>
-                    <span class="font-bold text-gray-800 text-sm lg:text-base tracking-tight">Aside Agent</span>
-                </div>
-                <div class="text-[10px] lg:text-[11px] bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200 font-medium">Claude 3.5 Sonnet</div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto aside-scrollbar p-3 lg:p-5 flex flex-col gap-4" id="aside-chat">
-                <div class="text-center text-[10px] lg:text-xs text-gray-400 font-medium my-1">오늘</div>
-                
-                <div class="flex gap-2.5 lg:gap-3">
-                    <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm border border-gray-200">
-                        <svg class="w-3.5 h-3.5 lg:w-4 lg:h-4 text-aside-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
-                    </div>
-                    <div class="flex-1 bg-white p-3 lg:p-3.5 rounded-2xl rounded-tl-sm border border-gray-200 shadow-sm text-xs lg:text-sm text-gray-700 leading-relaxed">
-                        안녕하세요 선생님! <br>저는 선생님의 웹 브라우저 안에서 함께 일하는 <strong>Aside AI 에이전트</strong>입니다.<br><br>
-                        원하시는 프롬프트를 <strong>복사(클릭)</strong>하여 아래 창에 <strong>붙여넣기</strong> 해보세요. 제가 웹페이지를 어떻게 제어하는지 보여드릴게요.
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-3 lg:p-4 bg-white border-t border-gray-200 shrink-0 pb-6 lg:pb-4">
-                <div class="relative border border-gray-300 rounded-xl shadow-sm bg-gray-50 focus-within:bg-white focus-within:border-aside-500 focus-within:ring-1 focus-within:ring-aside-200 transition-all overflow-hidden">
-                    <textarea id="mock-input" rows="3" class="w-full bg-transparent border-0 py-2.5 px-3 lg:py-3 lg:px-4 text-xs lg:text-sm focus:ring-0 resize-none aside-scrollbar text-gray-800 placeholder-gray-400" placeholder="Ask AI a task... (여기에 복사한 프롬프트를 붙여넣으세요)"></textarea>
-                    <div class="flex justify-between items-center px-2 pb-2">
-                        <div class="flex gap-1 text-gray-400">
-                            <button class="p-1.5 hover:bg-gray-200 rounded-md transition-colors" title="첨부파일"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg></button>
-                        </div>
-                        <button onclick="triggerSimulation()" class="w-7 h-7 lg:w-8 lg:h-8 bg-black text-white rounded-lg hover:bg-gray-800 shadow-sm transition-colors flex items-center justify-center" title="전송 (Enter)">
-                            <svg class="w-3.5 h-3.5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                            <span class="truncate">실시간 실습데이터</span>
                         </button>
-                    </div>
+                        <button onclick="renderDynamicView('reference')" id="btn-reference" class="nav-button w-40 sm:w-full flex items-center gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-left text-sm font-medium transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800">
+                            <div class="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shrink-0 icon-container">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                            </div>
+                            <span class="truncate">참고사이트 모음</span>
+                        </button>
+                    </nav>
                 </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 bg-white dark:bg-darkbg relative overflow-y-auto transition-colors duration-300">
+            <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMTQ4LCAxNjMsIDE4NCwgMC4xKSIvPjwvc3ZnPg==')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMjU1LCAyNTUsIDI1NSwgMC4wNSkiLz48L3N2Zz4=')]"></div>
+            
+            <div id="content-area" class="max-w-4xl mx-auto p-4 sm:p-8 lg:p-12 transition-all duration-300 relative z-10 min-h-full">
+                <!-- Dynamic content injected here -->
+                <div class="flex items-center justify-center h-64">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed bottom-6 right-6 hidden z-50">
+        <div class="glass-panel text-slate-800 dark:text-white px-6 py-3 rounded-xl shadow-xl flex items-center gap-3">
+            <div class="bg-green-500 rounded-full p-1 text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <span class="font-bold">복사 완료!</span>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full transform scale-95 transition-transform duration-300" id="qr-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white">QR 코드 스캔</h3>
+                <button onclick="closeQRModal()" class="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="flex justify-center bg-white p-4 rounded-xl border border-slate-200">
+                <img id="qr-image" src="" alt="QR Code" class="w-64 h-64 object-contain">
+            </div>
+            <p class="text-center text-sm text-slate-500 dark:text-slate-400 mt-4">스마트폰 카메라로 스캔하여 모바일에서 바로 접속하세요.</p>
+        </div>
+    </div>
+
+    <!-- Admin Modal -->
+    <div id="admin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full transform scale-95 transition-transform duration-300" id="admin-modal-content">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">관리자 인증</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">관리자 인증번호를 입력하세요.</p>
+            <input type="password" id="admin-password-input" class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary mb-5" placeholder="인증번호">
+            <div class="flex justify-end gap-2">
+                <button onclick="closeAdminModal()" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">취소</button>
+                <button onclick="submitAdminPassword()" class="px-4 py-2 rounded-lg text-sm font-bold bg-primary text-white hover:bg-indigo-600 transition-colors shadow-sm">확인</button>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="fixed bottom-12 lg:bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 lg:px-5 py-2 lg:py-3 rounded-xl shadow-2xl text-xs lg:text-sm font-medium z-50 toast flex items-center gap-2 lg:gap-3 pointer-events-none whitespace-nowrap">
-        <svg class="w-4 h-4 lg:w-5 lg:h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        복사 완료! 우측 하단 입력창에 붙여넣으세요.
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full transform scale-95 transition-transform duration-300" id="alert-modal-content">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
+                    <svg class="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white">알림</h3>
+            </div>
+            <p id="alert-message" class="text-sm text-slate-600 dark:text-slate-300 mb-5 break-keep"></p>
+            <div class="flex justify-end">
+                <button onclick="closeAlertModal()" class="px-5 py-2 rounded-lg text-sm font-bold bg-primary text-white hover:bg-indigo-600 transition-colors shadow-sm">확인</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // 1. 탭 전환 로직
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => { el.classList.add('hidden'); el.classList.remove('block'); });
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('bg-white', 'text-aside-600', 'border-t', 'border-l', 'border-r', 'shadow-sm');
-                btn.classList.add('text-gray-500', 'border-transparent', 'hover:bg-gray-200');
-            });
+        const SHEET_ID = '1TvJWTBXTERoR3pEVHQB-tSzhZ1CPdMWVaodUcYECbxA';
+        
+        let appData = {
+            settings: { adminPassword: '', org: '로딩중', name: '데이터 동기화 중...' },
+            practiceData: [], // { title, data }
+            referenceData: [], // { title, link }
+            lastFetch: 0
+        };
 
-            const targetContent = document.getElementById('content-' + tabId);
-            if(targetContent) { targetContent.classList.remove('hidden'); targetContent.classList.add('block'); }
+        let currentView = { type: 'course', id: 's1-1' }; // type: course | practice | reference
 
-            const selectedBtn = document.getElementById('tab-' + tabId);
-            if(selectedBtn) {
-                selectedBtn.classList.remove('text-gray-500', 'border-transparent', 'hover:bg-gray-200');
-                selectedBtn.classList.add('bg-white', 'text-aside-600', 'border-t', 'border-l', 'border-r', 'shadow-sm');
+        // Hardcoded 8 Scenarios for Part 1 & 2
+        const courseData = [
+            {
+                id: 's1-1', part: 1,
+                title: '검색부터 Canva PPT 제작까지 (Zero-click)',
+                icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z',
+                theoryTitle: '크로스 플랫폼 제어 (Web to Canva)',
+                theoryContent: 'Aside의 가장 강력한 기능은 다른 앱을 직접 제어하는 "Agentic(비서형) AI"라는 점입니다. 텍스트를 출력하는 데 그치지 않고, 지시를 받으면 직접 캔바(Canva)를 열어 슬라이드를 구성하고 텍스트를 배치하는 작업까지 스스로 수행합니다.',
+                instruction: '새 탭에 열린 [미술 색채 이론] 문서를 띄워둔 상태로 아래 프롬프트를 복사하여 Aside에 입력하세요.',
+                prep: { type: 'html', title: '미술 색채 이론 학습 자료', htmlContent: `<h2>미술 색채 이론: 명도와 채도 대비</h2><p>색상은 빨강, 노랑, 파랑 등 색을 구별하는 특성이며, 명도는 밝기, 채도는 맑기를 뜻합니다. 명도 대비는 밝은 색은 더 밝게, 어두운 색은 더 어둡게 보이는 현상이며, 채도 대비는 탁한 색 옆의 선명한 색이 더 돋보이는 현상입니다.</p>` },
+                prompt: `현재 열려있는 탭의 [미술 색채 이론 및 명도/채도 대비]에 대한 내용을 분석해줘.\n이 내용을 고등학교 1학년 학생들에게 설명하기 쉽도록 핵심만 요약한 뒤, 이 요약본을 바탕으로 Canva(캔바)를 실행하여 16:9 비율의 교육용 프레젠테이션(총 5슬라이드) 초안을 제작해줘.\n각 슬라이드에는 어울리는 이미지 요소를 자동으로 배치해줘.`
+            },
+            {
+                id: 's1-2', part: 1,
+                title: '유튜브 영상 큐레이션 & 구글 시트 정리',
+                icon: 'M9 19v-6a2 2 0 00-2-2H4a2 2 0 00-2 2v6a2 2 0 002 2h3a2 2 0 002-2zm0 0V9a2 2 0 012-2h3a2 2 0 012 2v10m-6 0a2 2 0 002 2h1a2 2 0 002-2m-6 0h6',
+                theoryTitle: '멀티미디어 데이터 마이닝 및 시트 연동',
+                theoryContent: '조건(예: 조회수, 분량)에 맞는 유튜브 영상을 스스로 검색, 요약한 뒤 그 결과를 구글 스프레드시트에 알아서 표 형태로 정리해 넣는 완벽한 RPA 경험을 제공합니다.',
+                instruction: '빈 탭에서 바로 아래 프롬프트를 복사하여 실행하면 Aside가 알아서 검색부터 시트 정리까지 수행합니다.',
+                prep: null,
+                prompt: `유튜브에서 '고등학교 통합과학 신재생 에너지'와 관련된 시청각 자료 중, 조회수가 10만 회 이상이고 10분 내외로 설명이 잘 된 영상 3개를 검색해줘.\n검색된 각 영상의 [제목, 핵심 내용 3줄 요약, URL 링크]를 추출하여 표로 구성해줘.\n그다음, 내 구글 스프레드시트 앱을 열고 '과학_영상자료'라는 새 시트를 만들어 이 표를 그대로 복사해서 저장해줘.`
+            },
+            {
+                id: 's1-3', part: 1,
+                title: '모의고사 분석 및 구글 폼(Forms) 자동 생성',
+                icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
+                theoryTitle: '문서 인지 기반 평가 도구 다이렉트 빌딩',
+                theoryContent: '열려있는 평가원 모의고사 PDF나 한글 문서를 인식한 후, 문항을 추출/변형하여 즉시 구글 폼(Google Forms) 설문지로 만들어내는 마법 같은 연동을 보여줍니다.',
+                instruction: '제공된 영어 모의고사 지문 탭을 띄워둔 상태로 프롬프트를 복사하여 실행하세요.',
+                prep: { type: 'html', title: '고3 모의고사 지문', htmlContent: `<p>Many cognitive biases are rooted in our evolutionary history. For instance, the confirmation bias—our tendency to search for, interpret, favor, and recall information in a way that confirms our preexisting beliefs—was likely adaptive for early humans...</p>` },
+                prompt: `현재 화면에 열려있는 [고3 9월 모의고사 영어 지문]을 분석해서, 본문 내용을 바탕으로 주제 찾기용 객관식 1문항과 본문의 빈칸에 들어갈 알맞은 말 추론 객관식 1문항, 총 2문항을 영어로 제작해줘.\n그리고 내 구글 폼(Google Forms) 앱을 실행하여 '모의고사 복습 퀴즈'라는 제목의 새 설문지를 생성한 뒤, 방금 만든 2문항과 각 문항별 정답 세팅까지 완료해줘.`
+            },
+            {
+                id: 's1-4', part: 1,
+                title: '시사 기사 스크랩 및 Notion 토론 페이지 생성',
+                icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2.5 2.5 0 00-2.5-2.5H15',
+                theoryTitle: '정보 구조화 및 에듀테크 플랫폼(Notion) 자동 퍼블리싱',
+                theoryContent: '웹에서 스크랩한 정보를 지시한 서식(찬/반, 발제문 등)으로 재가공하여 지정된 플랫폼(노션 등)에 즉시 페이지를 개설해 줍니다.',
+                instruction: '아래 준비된 시사 기사 탭을 열어둔 상태로 지시를 내리세요.',
+                prep: { type: 'html', title: 'AI와 저작권 기사', htmlContent: `<p>생성형 AI 기술 발전으로 AI가 그린 그림의 저작권 논쟁이 뜨겁다. 찬성 측은 기술 발전의 흐름이며 인간 프롬프트의 창작성을 인정해야 한다고 주장하고, 반대 측은 무단 데이터 크롤링으로 인한 원작자 피해를 규제해야 한다고 주장한다.</p>` },
+                prompt: `현재 열려있는 [AI와 저작권 관련 기사]의 핵심 쟁점을 찬성과 반대 양측의 입장에서 균형 있게 요약해줘.\n그다음, 내 노션(Notion)을 실행해서 '시사 토론: AI 저작권'이라는 새 페이지를 개설하고, 이 요약본과 함께 학생들이 댓글로 토론할 수 있는 토론 발제문 2개를 보기 좋게 서식을 입혀서 작성해줘.`
+            },
+            {
+                id: 's2-1', part: 2,
+                title: '쿠팡 물품 검색, 장바구니 및 품의서 연동',
+                icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z',
+                theoryTitle: 'E-commerce API 및 예산 관리 자동화',
+                theoryContent: 'Aside가 진정한 웹 비서임을 보여주는 핵심 기능입니다. "조건에 맞는 상품 검색 -> 장바구니 담기 -> 품의서용 스프레드시트 정리"라는 3단계 행동을 한 번에 수행합니다.',
+                instruction: '아래 버튼을 눌러 쿠팡 화면을 열어둔 뒤 프롬프트를 실행하세요.',
+                prep: { type: 'url', title: '쿠팡 메인화면', url: 'https://www.coupang.com/' },
+                prompt: `쿠팡에서 고등학교 미술 시간에 사용할 '수채화 물감 세트(전문가용)'를 검색해줘.\n[조건] 리뷰가 좋고 평점이 4.5 이상이며, 내일 도착하는 로켓배송 제품으로 5개를 찾아줘.\n\n위 조건에 맞는 5개 상품을 전부 내 장바구니에 담아줘.\n작업이 끝나면 내 구글 스프레드시트를 열어 '미술과_품의예정목록'이라는 문서를 생성하고, 해당 상품들의 [상품명, 가격, 로켓배송 여부, 구매 링크]를 표 형태로 깔끔하게 정리해줘.`
+            },
+            {
+                id: 's2-2', part: 2,
+                title: '웹 공지사항 인식 및 학부모 웹메일 초안 작성',
+                icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',
+                theoryTitle: '웹 정보 스크래핑 및 메일 플랫폼 제어',
+                theoryContent: '학교 홈페이지의 긴 공지사항을 스크래핑하여 읽고, 학부모용으로 톤앤매너를 변환한 뒤, 웹메일(Gmail 등)을 직접 열어 임시보관함에 메시지를 작성해 둡니다.',
+                instruction: '준비된 학교 공지사항 페이지를 띄워둔 상태에서 프롬프트를 실행해 보세요.',
+                prep: { type: 'html', title: '학교 홈페이지 공지사항', htmlContent: `<p>[공지] 2026학년도 수능 응시원서 접수 안내<br>접수 기간: 8월 21일~9월 5일<br>장소: 진로진학상담실<br>준비물: 응시원서, 여권사진 2매, 신분증, 수수료</p>` },
+                prompt: `현재 열려있는 '2026학년도 대학수학능력시험 응시원서 접수 안내' 웹페이지 내용을 분석해줘.\n이 내용을 학부모님들이 모바일에서 읽기 쉽게 핵심 일정과 준비물 위주로 3~4줄로 명확하게 요약해줘.\n\n요약이 완료되면, 내 Gmail(또는 주 사용 웹메일)을 실행해서 "학부모님, 안녕하십니까. 수능 원서 접수 안내드립니다."로 시작하는 매우 정중한 어조의 안내 메일 초안을 작성하고 내 메일 임시보관함에 저장해줘.`
+            },
+            {
+                id: 's2-3', part: 2,
+                title: '회의 웹메일 파싱 및 구글 캘린더 자동 등록',
+                icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+                theoryTitle: '이메일 데이터 파싱 및 캘린더 스케줄링 연동',
+                theoryContent: '웹메일 수신함에서 회의 안내 메일 본문의 일시, 장소, 안건을 스스로 추출하여 구글 캘린더에 바로 이벤트로 등록하는 강력한 스케줄링 에이전트 기능입니다.',
+                instruction: '가상의 회의 안내 웹메일 화면을 띄워두고 실행하세요.',
+                prep: { type: 'html', title: '웹메일 수신함(회의 안내)', htmlContent: `<p>제목: 11월 학사일정 조정 회의<br>일시: 11월 12일 화요일, 오후 3시 30분<br>장소: 본관 2층 소회의실<br>안건: 기말고사 일정 변경 검토</p>` },
+                prompt: `현재 화면에 열려있는 교무기획부 부장님의 '11월 학사일정 조정 회의 안내' 웹메일 본문을 읽어줘.\n본문에서 [회의 일시, 장소, 핵심 안건]을 추출해줘.\n추출을 완료한 후, 내 구글 캘린더(Google Calendar)를 열어 해당 일시에 '학사일정 조정 부장 회의'라는 제목으로 이벤트를 자동 등록하고, 안건 내용과 장소는 일정 설명(Details) 란에 포함시켜줘.`
+            },
+            {
+                id: 's2-4', part: 2,
+                title: '해외 자료 번역 및 구글 문서(Docs) 교재 편집',
+                icon: 'M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129',
+                theoryTitle: '실시간 다국어 번역 및 문서 편집기(워드/Docs) 레이아웃 제어',
+                theoryContent: '해외 저널 등을 번역한 뒤, 구글 문서(Docs)를 열어 원문과 번역문을 표 형태로 예쁘게 비교 편집해 주는 고차원적인 문서 작성 보조 기능입니다.',
+                instruction: '준비된 해외 영문 저널 화면을 띄워놓고 프롬프트를 입력하세요.',
+                prep: { type: 'html', title: '해외 영문 과학 저널', htmlContent: `<p>Recent advancements in CRISPR-Cas9 technology have opened new possibilities in genetic engineering. Scientists are now able to target specific DNA sequences with unprecedented precision.</p>` },
+                prompt: `현재 열려있는 [해외 영문 과학 저널 사이트]의 본문을 고등학교 2학년 학생 수준에서 이해하기 쉽도록 매끄러운 한국어로 번역해줘.\n번역이 완료되면 내 구글 문서(Google Docs)를 열어 '심화과학_해외저널_읽기자료'라는 제목으로 새 문서를 생성해줘.\n문서 안에는 2열짜리 표를 만들어서, 왼쪽 열에는 영문 원문을, 오른쪽 열에는 번역본을 문단별로 1:1 매칭하여 깔끔한 교재 형태로 편집해줘.`
             }
+        ];
 
-            const urls = {
-                install: 'https://aside-edu-class.com/install-guide',
-                basic: 'https://aside-edu-class.com/basic-prompts',
-                advanced: 'https://aside-edu-class.com/advanced-research',
-                automation: 'https://aside-edu-class.com/canva-automation'
-            };
-            document.getElementById('browser-url').innerText = urls[tabId];
+        async function fetchCSV(sheetName) {
+            // Add timestamp to prevent caching
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}&t=${Date.now()}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const csvData = await response.text();
+                
+                return new Promise((resolve) => {
+                    Papa.parse(csvData, {
+                        header: false,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            resolve(results.data);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error(`Error fetching ${sheetName}:`, error);
+                return null;
+            }
         }
 
-        // 2. Settings 메뉴 전환 로직
-        function showSetting(settingId, btnElement) {
-            document.querySelectorAll('.setting-detail-card').forEach(card => {
-                card.classList.remove('block'); card.classList.add('hidden');
-            });
-            document.querySelectorAll('.setting-btn').forEach(btn => {
-                btn.classList.remove('bg-gray-200', 'text-gray-900', 'font-semibold');
-                btn.classList.add('text-gray-600', 'hover:bg-gray-100');
-            });
+        async function updateDashboardData() {
+            // 1. Fetch 설정
+            const settingsData = await fetchCSV('설정');
+            if (settingsData && settingsData.length > 1) {
+                // Row 0 is header, Row 1 is data
+                const row = settingsData[1];
+                if(row) {
+                    appData.settings.adminPassword = row[0] ? String(row[0]).trim() : '';
+                    appData.settings.org = row[1] || '지정되지 않음';
+                    appData.settings.name = row[2] || '연수명 미설정';
+                    
+                    document.getElementById('display-org').textContent = appData.settings.org;
+                    document.getElementById('display-name').textContent = appData.settings.name;
+                }
+            }
 
-            const targetDetail = document.getElementById('detail-' + settingId);
-            if(targetDetail) { targetDetail.classList.remove('hidden'); targetDetail.classList.add('block'); }
+            const prevPracticeStr = JSON.stringify(appData.practiceData);
+            const prevReferenceStr = JSON.stringify(appData.referenceData);
 
-            if(btnElement) {
-                btnElement.classList.remove('text-gray-600', 'hover:bg-gray-100');
-                btnElement.classList.add('bg-gray-200', 'text-gray-900', 'font-semibold');
+            // 2. Fetch 실습데이터
+            const practiceCSV = await fetchCSV('실습데이터');
+            if (practiceCSV && practiceCSV.length > 1) {
+                // Skip header (index 0)
+                appData.practiceData = practiceCSV.slice(1).map(row => ({
+                    title: row[0] || '제목 없음',
+                    data: row[1] || ''
+                })).filter(item => item.title && item.data); // Filter out completely empty rows
+            } else {
+                appData.practiceData = [];
+            }
+
+            // 3. Fetch 참고사이트
+            const referenceCSV = await fetchCSV('참고사이트');
+            if (referenceCSV && referenceCSV.length > 1) {
+                // Skip header
+                appData.referenceData = referenceCSV.slice(1).map(row => ({
+                    title: row[0] || '사이트명 없음',
+                    link: row[1] || ''
+                })).filter(item => item.title && item.link);
+            } else {
+                appData.referenceData = [];
+            }
+
+            const newPracticeStr = JSON.stringify(appData.practiceData);
+            const newReferenceStr = JSON.stringify(appData.referenceData);
+            const hasDataChanged = (prevPracticeStr !== newPracticeStr) || (prevReferenceStr !== newReferenceStr);
+
+            // Re-render if looking at dynamic views only when data actually changed
+            if (hasDataChanged && (currentView.type === 'practice' || currentView.type === 'reference')) {
+                renderDynamicView(currentView.type, true); // true = silent update (no layout jump)
             }
         }
 
-        // 3. 확실한 클립보드 복사 로직 (execCommand 사용)
-        let currentSimulateConfig = { multiTab: false, formFill: false, canva: false };
+        function init() {
+            // Load theme preference
+            if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            updateThemeIcons();
 
-        function copyPromptAndSimulate(elementId, isMultiTab = false, isFormFill = false, isCanva = false) {
-            const textToCopy = document.getElementById(elementId).innerText;
-            const mockInput = document.getElementById('mock-input');
-            currentSimulateConfig = { multiTab: isMultiTab, formFill: isFormFill, canva: isCanva };
+            renderSidebar();
+            renderContentView(currentView);
+
+            // Initial fetch
+            updateDashboardData();
+
+            // Set polling interval (Real-time sync every 3 seconds)
+            setInterval(updateDashboardData, 3000);
+        }
+
+        function renderSidebar() {
+            const navPart1 = document.getElementById('nav-part1');
+            const navPart2 = document.getElementById('nav-part2');
             
+            navPart1.innerHTML = '';
+            navPart2.innerHTML = '';
+
+            courseData.forEach((item) => {
+                const navItem = document.createElement('button');
+                navItem.className = 'nav-button w-40 sm:w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl text-left text-sm font-medium transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 shrink-0 sm:shrink-auto';
+                navItem.setAttribute('data-id', item.id);
+                navItem.onclick = () => {
+                    currentView = { type: 'course', id: item.id };
+                    renderContentView(currentView);
+                };
+                
+                navItem.innerHTML = `
+                    <div class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 shrink-0 icon-container">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${item.icon}" />
+                        </svg>
+                    </div>
+                    <span class="truncate leading-tight block w-full text-[13px] sm:text-sm">${item.title}</span>
+                `;
+
+                if (item.part === 1) navPart1.appendChild(navItem);
+                else navPart2.appendChild(navItem);
+            });
+        }
+
+        function updateActiveNavStyles() {
+            document.querySelectorAll('.nav-button').forEach(btn => {
+                btn.classList.remove('bg-white', 'dark:bg-slate-800', 'text-primary', 'dark:text-secondary', 'shadow-md', 'border-l-4', 'border-primary', 'dark:border-secondary');
+                btn.classList.add('text-slate-600', 'dark:text-slate-400', 'border-transparent');
+                
+                const iconContainer = btn.querySelector('.icon-container');
+                if(iconContainer) {
+                    iconContainer.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/50', 'text-primary', 'dark:text-secondary');
+                    if(!btn.id.includes('btn-practice') && !btn.id.includes('btn-reference')) {
+                        iconContainer.classList.add('bg-slate-100', 'dark:bg-slate-800');
+                    }
+                }
+            });
+
+            let activeBtn;
+            if (currentView.type === 'course') {
+                activeBtn = document.querySelector(`.nav-button[data-id="${currentView.id}"]`);
+            } else if (currentView.type === 'practice') {
+                activeBtn = document.getElementById('btn-practice');
+            } else if (currentView.type === 'reference') {
+                activeBtn = document.getElementById('btn-reference');
+            }
+
+            if (activeBtn) {
+                activeBtn.classList.add('bg-white', 'dark:bg-slate-800', 'text-primary', 'dark:text-secondary', 'shadow-sm', 'border-l-4', 'border-primary', 'dark:border-secondary');
+                activeBtn.classList.remove('text-slate-600', 'dark:text-slate-400', 'border-transparent');
+                const iconContainer = activeBtn.querySelector('.icon-container');
+                if(iconContainer) {
+                    iconContainer.classList.add('bg-indigo-50', 'dark:bg-indigo-900/50', 'text-primary', 'dark:text-secondary');
+                    iconContainer.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'text-emerald-600', 'dark:text-emerald-400', 'bg-emerald-100', 'dark:bg-emerald-900/30');
+                }
+            }
+        }
+
+        function renderContentView(view) {
+            updateActiveNavStyles();
+            const contentArea = document.getElementById('content-area');
+            
+            // Fade out effect
+            contentArea.style.opacity = '0';
+            contentArea.style.transform = 'translateY(10px)';
+            
+            setTimeout(() => {
+                if (view.type === 'course') {
+                    renderCourseContent(view.id, contentArea);
+                } else {
+                    renderDynamicContent(view.type, contentArea, false);
+                }
+                
+                contentArea.style.opacity = '1';
+                contentArea.style.transform = 'translateY(0)';
+                document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
+            }, 200);
+        }
+
+        function renderDynamicView(type, silent = false) {
+            currentView = { type: type, id: null };
+            if (silent) {
+                // Update HTML without fade animation to prevent flickering
+                const contentArea = document.getElementById('content-area');
+                renderDynamicContent(type, contentArea, true);
+            } else {
+                renderContentView(currentView);
+            }
+        }
+
+        function renderCourseContent(id, container) {
+            const data = courseData.find(d => d.id === id);
+            if (!data) return;
+
+            let prepHtml = '';
+            if (data.prep) {
+                prepHtml = `
+                    <div class="mb-6 p-4 sm:p-5 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30 shadow-sm">
+                        <h2 class="text-sm font-bold text-primary dark:text-secondary uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <span class="bg-primary text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">1</span>
+                            Step 1. 실습용 자료 띄우기
+                        </h2>
+                        <p class="text-slate-600 dark:text-slate-400 text-xs sm:text-sm mb-4 break-keep">먼저 아래 버튼을 눌러 Aside가 분석할 자료 화면을 새 탭으로 띄워주세요.</p>
+                        <button onclick="openPrepMaterial('${data.id}')" class="inline-flex items-center gap-2 bg-white dark:bg-slate-800 border-2 border-primary dark:border-secondary text-primary dark:text-secondary hover:bg-indigo-50 dark:hover:bg-slate-700 px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg text-sm font-bold transition-all shadow-sm">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            [${data.prep.title}] 열기
+                        </button>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div class="mb-6 sm:mb-8 animate-fade-in">
+                    <span class="inline-block px-3 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50 text-indigo-700 dark:text-indigo-300 font-bold text-xs rounded-full mb-3 tracking-wide border border-indigo-200 dark:border-indigo-700/50">
+                        Agentic AI 실습 (Part ${data.part})
+                    </span>
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-3 leading-tight break-keep">${data.title}</h1>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-5 sm:p-6 lg:p-8 mb-6 sm:mb-8 relative overflow-hidden shadow-sm">
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-primary to-secondary"></div>
+                    <h2 class="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-3">
+                        <svg class="h-5 w-5 sm:h-6 sm:w-6 text-primary dark:text-secondary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        왜 Aside인가?: ${data.theoryTitle}
+                    </h2>
+                    <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-sm sm:text-base break-keep">${data.theoryContent}</p>
+                </div>
+
+                ${prepHtml}
+
+                <div class="mb-5 pl-2 sm:pl-3 border-l-4 border-slate-300 dark:border-slate-600">
+                    <h2 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+                        <span class="bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200 w-5 h-5 rounded-full flex items-center justify-center text-xs">2</span>
+                        Step 2. 프롬프트 실행
+                    </h2>
+                    <p class="text-slate-700 dark:text-slate-300 font-medium text-sm sm:text-base break-keep">${data.instruction}</p>
+                </div>
+
+                <div class="relative group mt-6">
+                    <div class="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-2xl blur opacity-20 dark:opacity-40 group-hover:opacity-40 transition duration-500"></div>
+                    <div class="relative bg-white dark:bg-darkcard rounded-2xl shadow-lg overflow-hidden flex flex-col border border-slate-100 dark:border-slate-700">
+                        <div class="bg-slate-800 dark:bg-slate-900 px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-700 gap-3 sm:gap-0">
+                            <div class="flex items-center gap-3">
+                                <div class="flex gap-1.5 hidden sm:flex">
+                                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                </div>
+                                <span class="text-xs sm:text-sm font-medium text-slate-300 font-mono flex items-center gap-2 truncate">
+                                    <svg class="h-4 w-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    Prompt.txt
+                                </span>
+                            </div>
+                            <button onclick="copyText(\`${escapeHtmlForJs(data.prompt)}\`)" class="flex justify-center items-center gap-2 bg-primary hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-md active:scale-95 w-full sm:w-auto">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                원클릭 복사
+                            </button>
+                        </div>
+                        <div class="p-4 sm:p-6 bg-slate-50 dark:bg-slate-800/50 flex-1 overflow-x-auto">
+                            <pre class="font-mono text-sm sm:text-[15px] leading-relaxed text-slate-800 dark:text-slate-300 whitespace-pre-wrap break-words">${escapeHtml(data.prompt)}</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDynamicContent(type, container, isSilent = false) {
+            const isPractice = type === 'practice';
+            const title = isPractice ? '강사 제공 실시간 실습데이터' : '유용한 참고 사이트 모음';
+            const desc = isPractice ? '강사님이 실시간으로 입력하는 프롬프트나 링크 데이터가 여기에 표시됩니다.' : '연수에 도움이 되는 추천 사이트 목록입니다.';
+            const dataList = isPractice ? appData.practiceData : appData.referenceData;
+            const emptyMsg = '현재 등록된 데이터가 없습니다.';
+            
+            const animClass = isSilent ? '' : 'animate-fade-in';
+            let listHtml = '';
+            
+            if (dataList.length === 0) {
+                listHtml = `
+                    <div class="text-center py-12 glass-panel rounded-2xl ${animClass}">
+                        <svg class="mx-auto h-12 w-12 text-slate-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                        <p class="text-slate-500 dark:text-slate-400">${emptyMsg}</p>
+                    </div>`;
+            } else {
+                listHtml = `<div class="grid gap-4 mt-6">`;
+                dataList.forEach((item, index) => {
+                    const content = isPractice ? item.data : item.link;
+                    const isUrl = /^https?:\/\//i.test(content.trim());
+                    
+                    let actionBtn = '';
+                    if (isUrl) {
+                        actionBtn = `
+                            <div class="flex gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+                                <a href="${content}" target="_blank" class="flex-1 sm:flex-none text-center px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-white rounded-lg text-sm font-semibold transition-colors">
+                                    접속하기
+                                </a>
+                                <button onclick="showQRModal('${content}')" class="flex-1 sm:flex-none text-center px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-800/50 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                                    QR
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        actionBtn = `
+                            <button onclick="copyText(\`${escapeHtmlForJs(content)}\`)" class="w-full sm:w-auto px-4 py-2 bg-primary hover:bg-indigo-600 text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1 mt-3 sm:mt-0">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                복사
+                            </button>
+                        `;
+                    }
+
+                    const animDelay = isSilent ? '' : `style="animation-delay: ${index * 50}ms"`;
+                    listHtml += `
+                        <div class="glass-panel p-4 sm:p-5 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow ${animClass}" ${animDelay}>
+                            <div class="flex-1 w-full overflow-hidden">
+                                <h3 class="font-bold text-slate-800 dark:text-white mb-1 truncate text-base">${item.title}</h3>
+                                <p class="text-sm text-slate-500 dark:text-slate-400 font-mono truncate">${escapeHtml(content)}</p>
+                            </div>
+                            ${actionBtn}
+                        </div>
+                    `;
+                });
+                listHtml += `</div>`;
+            }
+
+            container.innerHTML = `
+                <div class="mb-6 sm:mb-8 ${animClass}">
+                    <span class="inline-block px-3 py-1 bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/50 dark:to-teal-900/50 text-emerald-700 dark:text-emerald-300 font-bold text-xs rounded-full mb-3 tracking-wide border border-emerald-200 dark:border-emerald-700/50 flex items-center gap-1 w-max">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        실시간 동기화 중
+                    </span>
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight mb-2 leading-tight break-keep">${title}</h1>
+                    <p class="text-slate-600 dark:text-slate-400 text-sm sm:text-base">${desc}</p>
+                </div>
+                ${listHtml}
+                <div class="mt-8 text-center text-xs text-slate-400 dark:text-slate-500 ${animClass}">
+                    <p>※ 구글 시트의 데이터가 변경되면 자동으로 화면이 갱신됩니다.</p>
+                </div>
+            `;
+        }
+
+        function copyText(text) {
             const textArea = document.createElement("textarea");
-            textArea.value = textToCopy;
-            textArea.style.position = "fixed"; textArea.style.top = "0"; textArea.style.left = "0"; textArea.style.opacity = "0";
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
             document.body.appendChild(textArea);
             textArea.focus();
             textArea.select();
-
             try {
-                const successful = document.execCommand('copy');
-                if(successful) {
-                    showToast();
-                    mockInput.value = textToCopy;
-                    mockInput.classList.add('ring-2', 'ring-blue-500', 'bg-white');
-                    setTimeout(() => mockInput.classList.remove('ring-2', 'ring-blue-500', 'bg-white'), 1000);
-                    mockInput.focus();
-                }
-            } catch (err) {
-                console.error('클립보드 복사 실패', err);
-                mockInput.value = textToCopy;
+                document.execCommand('copy');
                 showToast();
-            } finally {
-                document.body.removeChild(textArea);
+            } catch (err) {
+                console.error('Copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        let toastTimeout;
+        function showToast() {
+            const toast = document.getElementById('toast-container');
+            toast.classList.remove('hidden', 'toast-exit');
+            toast.classList.add('toast-enter');
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, 2000);
+        }
+
+        function showQRModal(url) {
+            const modal = document.getElementById('qr-modal');
+            const img = document.getElementById('qr-image');
+            const content = document.getElementById('qr-modal-content');
+            
+            img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(url)}`;
+            
+            modal.classList.remove('hidden');
+            // Trigger reflow
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0');
+            modal.classList.add('opacity-100');
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+        }
+
+        function closeQRModal() {
+            const modal = document.getElementById('qr-modal');
+            const content = document.getElementById('qr-modal-content');
+            
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function openAdmin() {
+            const modal = document.getElementById('admin-modal');
+            const content = document.getElementById('admin-modal-content');
+            
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; // Trigger reflow
+            modal.classList.remove('opacity-0');
+            modal.classList.add('opacity-100');
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+            
+            setTimeout(() => {
+                document.getElementById('admin-password-input').focus();
+            }, 300);
+        }
+
+        function closeAdminModal() {
+            const modal = document.getElementById('admin-modal');
+            const content = document.getElementById('admin-modal-content');
+            
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.getElementById('admin-password-input').value = '';
+            }, 300);
+        }
+
+        function submitAdminPassword() {
+            const pass = document.getElementById('admin-password-input').value;
+            if (pass === appData.settings.adminPassword && pass !== '') {
+                window.open(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`, '_blank');
+                closeAdminModal();
+            } else {
+                showAlertModal("인증번호가 일치하지 않습니다.");
+            }
+        }
+        
+        function showAlertModal(msg) {
+            const modal = document.getElementById('alert-modal');
+            const content = document.getElementById('alert-modal-content');
+            document.getElementById('alert-message').textContent = msg;
+            
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0');
+            modal.classList.add('opacity-100');
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+        }
+
+        function closeAlertModal() {
+            const modal = document.getElementById('alert-modal');
+            const content = document.getElementById('alert-modal-content');
+            
+            modal.classList.remove('opacity-100');
+            modal.classList.add('opacity-0');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+            updateThemeIcons();
+        }
+
+        function updateThemeIcons() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const svgPath = isDark 
+                ? 'M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z' // Sun icon
+                : 'M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z'; // Moon icon
+                
+            document.getElementById('theme-icon').innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${svgPath}" />`;
+            document.getElementById('theme-icon-mobile').innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${svgPath}" />`;
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+        
+        function escapeHtmlForJs(unsafe) {
+            return unsafe.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+        }
+
+        function openPrepMaterial(id) {
+            const data = courseData.find(d => d.id === id);
+            if (!data || !data.prep) return;
+
+            if (data.prep.type === 'url') {
+                window.open(data.prep.url, '_blank');
+            } else if (data.prep.type === 'html') {
+                const newWin = window.open('', '_blank');
+                newWin.document.write(`
+                    <!DOCTYPE html>
+                    <html lang="ko">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>${data.prep.title}</title>
+                        <style>
+                            body { font-family: 'Noto Sans KR', sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; color: #333; background: #f8fafc; }
+                            .notice { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-bottom: 30px; border-radius: 4px; font-size: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+                            .content-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="notice">
+                            <strong>💡 연수용 모의 웹페이지입니다.</strong><br>
+                            이 화면을 닫지 말고 띄워둔 상태에서, Aside 확장을 열어 복사한 프롬프트를 실행해 보세요.
+                        </div>
+                        <div class="content-box">
+                            ${data.prep.htmlContent}
+                        </div>
+                    </body>
+                    </html>
+                `);
+                newWin.document.close();
             }
         }
 
-        function showToast() {
-            const toast = document.getElementById('toast');
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-
-        // 4. 에이전트 채팅 시뮬레이션
-        function triggerSimulation() {
-            const input = document.getElementById('mock-input').value;
-            if(!input.trim()) return;
-
-            const chatContainer = document.getElementById('aside-chat');
-            
-            const userMsg = document.createElement('div');
-            userMsg.className = 'flex gap-2.5 lg:gap-3 flex-row-reverse animate-fade-in';
-            userMsg.innerHTML = `
-                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0 border border-gray-300">
-                    <svg class="w-3.5 h-3.5 lg:w-4 lg:h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                </div>
-                <div class="flex-1 bg-gray-100 text-gray-800 p-3 lg:p-3.5 rounded-2xl rounded-tr-sm text-xs lg:text-sm break-all">
-                    ${input.replace(/\n/g, '<br>')}
-                </div>
-            `;
-            chatContainer.appendChild(userMsg);
-            document.getElementById('mock-input').value = '';
-
-            const loadingMsg = document.createElement('div');
-            loadingMsg.className = 'flex gap-2.5 lg:gap-3 animate-fade-in';
-            loadingMsg.id = 'loading-msg';
-            
-            let loadingText = "선생님이 보고 계신 페이지를 분석 중입니다...";
-            if(currentSimulateConfig.multiTab) loadingText = "열려있는 여러 사이트 탭을 순차적으로 탐색 중입니다...";
-            if(currentSimulateConfig.canva) loadingText = "문서를 분석하여 기획안을 짜고, 캔바 검색창을 준비 중입니다...";
-
-            loadingMsg.innerHTML = `
-                <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm border border-gray-200">
-                    <svg class="w-3.5 h-3.5 lg:w-4 lg:h-4 text-aside-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                </div>
-                <div class="bg-transparent px-2 py-2 text-xs lg:text-sm text-gray-500 italic flex items-center gap-2">
-                    ${loadingText}
-                </div>
-            `;
-            chatContainer.appendChild(loadingMsg);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-
-            setTimeout(() => {
-                const loader = document.getElementById('loading-msg');
-                if(loader) loader.remove();
-                
-                let resultText = "요청하신 공문의 핵심 내용 3줄 요약입니다.<br><br>1. 목적: 교원 에듀테크 역량 강화<br>2. 대상: 관내 초,중등 교사<br>3. 기한: 이번주 금요일 17:00까지<br><br>※ 첨부파일: '붙임1_연수신청서_양식.hwp'";
-                let resultBox = "✓ 화면 문서 DOM 스크래핑 성공<br>✓ 요약 완료";
-                
-                if(currentSimulateConfig.multiTab) {
-                    resultText = "3개 탭의 정보를 조사하여 표로 정리했습니다. (실제 Aside에서는 여기에 표가 출력됩니다.)";
-                    resultBox = "✓ Tab 1 (Padlet) 정보 수집<br>✓ Tab 2 (띵커벨) 정보 수집<br>✓ Tab 3 (Canva) 정보 수집<br>✓ 마크다운 표 생성 완료";
-                }
-                if(currentSimulateConfig.canva) {
-                    resultText = "요청하신 웹페이지 내용 기반의 <strong>카드뉴스 5장 기획안</strong>입니다. 지금 열린 캔바 템플릿에 바로 복사/붙여넣기 하세요!<br><br><div class='p-3 bg-gray-50 border border-gray-200 rounded text-gray-700 mt-2 text-xs lg:text-sm'>[슬라이드 1] 제목: 우리가 꼭 알아야 할 핵심 내용<br>내용: 실생활에서 꼭 지켜주세요.<br>추천 이미지: 돋보기 일러스트<br><br>[슬라이드 2] ... (이하 5장 완료)</div><br>✨ <strong>자동화 완료:</strong> 상단 새 탭에 캔바(Canva)를 열고 '교육용 카드뉴스' 검색을 완료했습니다.";
-                    resultBox = "✓ 현재 페이지 분석 완료<br>✓ Action: 새 탭 열기 (canva.com)<br>✓ Action: 검색창 Focus 및 타이핑<br>✓ Action: 키보드 Enter 입력 실행";
-                }
-
-                const aiMsg = document.createElement('div');
-                aiMsg.className = 'flex gap-2.5 lg:gap-3 animate-fade-in';
-                aiMsg.innerHTML = `
-                    <div class="w-7 h-7 lg:w-8 lg:h-8 rounded-full bg-white flex items-center justify-center shrink-0 shadow-sm border border-gray-200">
-                        <svg class="w-3.5 h-3.5 lg:w-4 lg:h-4 text-aside-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
-                    </div>
-                    <div class="flex-1 bg-white p-3 lg:p-4 rounded-2xl rounded-tl-sm border border-gray-200 shadow-sm text-xs lg:text-sm text-gray-800">
-                        <div class="border-b border-gray-100 pb-2 mb-2 lg:mb-3 flex items-center gap-1.5 text-[10px] lg:text-xs text-green-600 font-bold">
-                            <svg class="w-3.5 h-3.5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            작업 완료 (Task Completed)
-                        </div>
-                        <p class="mb-2 lg:mb-3 leading-relaxed">${resultText}</p>
-                        <div class="bg-gray-50 p-2 lg:p-3 rounded-lg border border-gray-200 text-[10px] lg:text-xs font-mono text-gray-600 leading-relaxed shadow-inner">
-                            ${resultBox}
-                        </div>
-                    </div>
-                `;
-                chatContainer.appendChild(aiMsg);
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-                currentSimulateConfig = { multiTab: false, formFill: false, canva: false };
-            }, 2500);
-        }
-
-        document.getElementById('mock-input').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                triggerSimulation();
+        // Close modal on outside click
+        document.getElementById('qr-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeQRModal();
             }
         });
+        
+        document.getElementById('admin-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAdminModal();
+            }
+        });
+        
+        document.getElementById('alert-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAlertModal();
+            }
+        });
+
+        document.getElementById('admin-password-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                submitAdminPassword();
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
